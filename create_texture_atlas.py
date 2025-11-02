@@ -25,7 +25,12 @@ class Faces:
         self.grid = grid
 
     def convert_arr(self, arr):
-        arr = arr.reshape(self.size, self.size, 3)
+        if arr.ndim == 2:
+            arr = arr.reshape(self.size, self.size, 3)
+        else:
+            arr = arr.reshape(self.size, self.size)
+            arr = np.stack([arr] * 3, axis=2)
+
         return np.clip(arr * 255, a_min=0, a_max=255).astype(np.uint8)
 
     def create_top_bottom(self, z, t):
@@ -130,8 +135,43 @@ class TextureAtlasGenerator:
         output(bg_img, 'atras')
         return bg_img
 
+    @classmethod
+    def from_voronoi(cls, grid=4, size=256):
+        voronoi = VoronoiNoise()
+        image_generator = cls(voronoi.voronoi3, grid, size)
+        return image_generator
+
+    @classmethod
+    def from_voronoi_edges(cls, grid=4, size=256):
+        voronoi = VoronoiEdges()
+        image_generator = cls(voronoi.vmix3, grid, size)
+        return image_generator
+
+    @classmethod
+    def from_voronoi_round_edges(cls, grid=4, size=256):
+        voronoi = VoronoiRoundEdges()
+        image_generator = cls(voronoi.vmix3_round, grid, size)
+        return image_generator
+
+    @classmethod
+    def from_transparent_round_edges(cls, grid=4, size=256):
+        voronoi = VoronoiRoundEdges()
+        func = lambda x, y, z: voronoi.vmix1(voronoi.voronoi_round_edge3(x, y, z, tp=20), 0.0, 1.0)
+        image_generator = cls(func, grid, size)
+        return image_generator
+
 
 if __name__ == '__main__':
-    tex_atlas = TextureAtlasGenerator()
+    # voronoi = VoronoiRoundEdges()
+    # func = lambda x, y, z: voronoi.vmix1(voronoi.voronoi_round_edge3(x, y, z, tp=20), 0.0, 1.0)
+
+    # tex_atlas = TextureAtlasGenerator(func)
+    # tex_atlas = TextureAtlasGenerator.from_voronoi()
+    tex_atlas = TextureAtlasGenerator.from_transparent_round_edges()
     t = random.uniform(0, 1000)
     tex_atlas.generate_texture(t)
+
+    # alpha = np.full((512, 1024, 1), 0, dtype=np.uint8)
+    # rgba_image = np.dstack((img, alpha))
+    # mask = np.all(img[:, :, :] == [255, 255, 255], axis=-1)
+    # rgba_image[mask, 3] = 255

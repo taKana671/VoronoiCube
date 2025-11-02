@@ -1,24 +1,11 @@
-from datetime import datetime
-import itertools
-import random
-
-import cv2
-import numpy as np
-from scipy.spatial import Voronoi, voronoi_plot_2d
 import sys
 
-from panda3d.core import Point3, LColor, NodePath, Vec3, Vec2
-from panda3d.core import TextureStage, TexGenAttrib
+from panda3d.core import Point3, NodePath, Vec3, Vec2
+from panda3d.core import TextureStage, AntialiasAttrib, TransparencyAttrib, Texture
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.ShowBaseGlobal import globalClock
-from direct.showbase.InputStateGlobal import inputState
-from panda3d.core import AntialiasAttrib, Texture
-import numpy as np
 
-from shapes import Sphere, Box
-from noise import VoronoiNoise, VoronoiEdges, VoronoiRoundEdges
-from create_texture_atlas import TextureAtlasGenerator
-from panda3d.core import Texture, TextureStage
+from shapes import Box
 
 
 class VoronoiCube(ShowBase):
@@ -112,9 +99,10 @@ class VoronoiCube(ShowBase):
     def create_box(self):
         segs = 4
         stride = 12
-        box = Box(width=20, depth=20, height=20, segs_d=segs, segs_w=segs, segs_z=segs).create()
+        box = Box(width=30, depth=30, height=30, segs_d=segs, segs_w=segs, segs_z=segs).create()
         box.set_pos_hpr(Point3(0, 0, 0), Vec3(0, 0, 0))
         box.reparent_to(self.render)
+        box.set_transparency(TransparencyAttrib.MAlpha)
         # box.set_scale(0.1)
 
         geom_node = box.node()
@@ -128,7 +116,7 @@ class VoronoiCube(ShowBase):
             vdata_mem[idx + 10] = u
             vdata_mem[idx + 11] = v
             # print(f"u: {u}, v: {v}")
-       
+
         tex = self.loader.load_texture('atras.png')
         # voronoi = VoronoiEdges()
         # image_generator = TextureAtlasGenerator(voronoi.vmix3)
@@ -158,6 +146,7 @@ class VoronoiCube(ShowBase):
 
         # box.hprInterval(20, (720, 0, 0)).start()
         self.box = box
+        # self.box.hprInterval(20, 360).loop()
 
     def mouse_click(self):
         self.dragging = True
@@ -197,38 +186,6 @@ class VoronoiCube(ShowBase):
                     self.rotate_camera(mouse_pos, dt)
 
         return task.cont
-
-
-def test():
-    inx = np.linspace(0, 10, 20, endpoint=True)
-    iny = np.linspace(0, 10, 20, endpoint=True)
-    inz = np.linspace(0, 10, 20, endpoint=True)
-    mx, my, mz = np.meshgrid(inx, iny, inz)
-
-    arr = []
-    for ax in range(len(mx)):
-        for ay in range(len(my)):
-            for az in range(len(mz)):
-                arr += [[mx[ax][ay][az], my[ax][ay][az], mz[ax][ay][az]]]
-
-    points = np.array(arr)
-    vor = Voronoi(points)
-
-    for idx, vts in enumerate(vor.vertices):
-        yield vts
-        # print(f'vertices {idx} {vts}')
-
-
-def output(arr, stem, parent='.', with_suffix=True):
-    if with_suffix:
-        now = datetime.now()
-        stem = f'{stem}_{now.strftime("%Y%m%d%H%M%S")}'
-
-    file_path = f'{parent}/{stem}.png'
-    # file_name = f'{stem}_{now.strftime("%Y%m%d%H%M%S")}.{ext}'
-    cv2.imwrite(file_path, arr)
-
-
 
 
 
