@@ -132,10 +132,11 @@ class TextureAtlasGenerator:
             w = i % 4 * self.size
             bg_img[h: h + self.size, w: w + self.size] = img
 
-        # Flipping bg_img by numpy slice like below causes
+        # Flipping bg_img only by numpy slice 'bg_img[::-1]' causes in VoronoiCube.create_texture method
         # 'TypeError: Texture.set_ram_image() requires a contiguous buffer'.
-        # bg_img = bg_img[::-1]
-        bg_img = cv2.flip(bg_img, 0)
+        # To convert slices into contiguous memory regions, copy the bg_img into a new array.
+        bg_img = bg_img[::-1]
+        bg_img = bg_img.copy()
         output(bg_img, 'atras')
         return bg_img
 
