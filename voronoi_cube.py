@@ -1,16 +1,56 @@
+import random
 import sys
+from enum import StrEnum
 
 from panda3d.core import Point3, NodePath, Vec3, Vec2
-from panda3d.core import TextureStage, AntialiasAttrib, TransparencyAttrib, Texture
+from panda3d.core import AntialiasAttrib, TransparencyAttrib, Texture
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.ShowBaseGlobal import globalClock
 
+from create_texture_atlas import TextureAtlasGenerator
 from shapes import Box
 
 
-class VoronoiCube(ShowBase):
+class NoiseType(StrEnum):
+    VORONOI = "voronoi"
+    EDGE = "edge"
+    ROUNDED = "rounded"
+    TRANSPARENT = "transparent"
 
-    def __init__(self):
+    @classmethod
+    def get_all(cls):
+        return [elem.value for elem in cls]
+
+
+class NoiseTypeErrpr(Exception):
+
+    def __init__(self, noise_type):
+        self.noise_type = noise_type
+
+    def __str__(self):
+        return (f"{self.noise_type}: an invalid value."
+                f"Only one of the {NoiseType.get_all()} may be specified.")
+
+
+class VoronoiCube(ShowBase):
+    """A class to apply different textures to each side of the cube.
+        Args:
+            noise_type (str):
+                Specify the noise type from voronoi, edge, rounded, or transparent.
+                Specifying a noise type dynamically generates textures from the noise.
+                The size and grid must be specified.
+            file_path (str):
+                Path to the image file used as a texture.
+                The image must be created using create_texture_atlas.py.
+                When specifying the file_path, set noise_type to None.
+            tex_grid (int): the number of vertical and horizontal grids.
+            tex_size (int): image size.
+            box_size (float): box size.
+            box_segs (int): the number of subdivisions in width, depth, and height.
+    """
+
+    def __init__(self, file_path=None, noise_type="voronoi", tex_grid=4, tex_size=256,
+                 box_size=30, box_segs=5):
         super().__init__()
         self.disable_mouse()
         self.render.set_antialias(AntialiasAttrib.MAuto)
@@ -19,7 +59,6 @@ class VoronoiCube(ShowBase):
         self.camera_root.reparent_to(self.render)
 
         self.camera.set_pos(0, -100, 50)
-        # self.camera.set_pos(0, 100, 50)
         self.camera.look_at(Point3(0, 0, 0))
         self.camera.reparent_to(self.camera_root)
 
@@ -33,7 +72,7 @@ class VoronoiCube(ShowBase):
         self.accept('escape', sys.exit)
         self.task_mgr.add(self.update, 'update')
 
-        self.create_box()
+        self.create_box(file_path, noise_type, tex_grid, tex_size, box_size, box_segs)
         # self.create_vertices()
 
     def toggle_wireframe(self):
@@ -96,57 +135,79 @@ class VoronoiCube(ShowBase):
             v = v_end - (segs - i // (segs + 1)) * (0.5 / segs)
             yield (u, v)
 
-    def create_box(self):
-        segs = 4
-        stride = 12
-        box = Box(width=30, depth=30, height=30, segs_d=segs, segs_w=segs, segs_z=segs).create()
-        box.set_pos_hpr(Point3(0, 0, 0), Vec3(0, 0, 0))
-        box.reparent_to(self.render)
-        box.set_transparency(TransparencyAttrib.MAlpha)
-        # box.set_scale(0.1)
+    def create_texture(self, file_path, noise_type, grid, size):
+        if file_path:
+            tex = self.loader.load_texture(file_path)
+            return tex
 
-        geom_node = box.node()
+        match noise_type:
+
+            case NoiseType.VORONOI:
+                tex_creator = TextureAtlasGenerator.from_voronoi(grid, size)
+
+            case NoiseType.EDGE:
+                tex_creator = TextureAtlasGenerator.from_voronoi_edges(grid, size)
+
+            case NoiseType.ROUNDED:
+                tex_creator = TextureAtlasGenerator.from_voronoi_round_edges(grid, size)
+
+            case NoiseType.TRANSPARENT:
+                tex_creator = TextureAtlasGenerator.from_transparent_round_edges(grid, size)
+
+            case _:
+                raise NoiseTypeErrpr(noise_type)
+
+        t = random.uniform(0, 1000)
+        img = tex_creator.generate_texture(t)
+
+        tex = Texture('tex_image')
+        tex.setup_2d_texture(
+            size * 4,
+            size * 2,
+            Texture.T_unsigned_byte,
+            Texture.F_rgb
+        )
+
+        tex.set_ram_image(img)
+        return tex
+
+    def create_box(self, file_path, noise_type, tex_grid, tex_size, box_size, box_segs):
+        # create box model.
+        box_maker = Box(
+            width=box_size,
+            depth=box_size,
+            height=box_size,
+            segs_d=box_segs,
+            segs_w=box_segs,
+            segs_z=box_segs
+        )
+
+        self.box = box_maker.create()
+        self.box.set_pos_hpr(Point3(0, 0, 0), Vec3(0, 0, 0))
+        self.box.reparent_to(self.render)
+        self.box.set_transparency(TransparencyAttrib.MAlpha)
+
+        # merge the textures for the different sides into an atlas texture.
+        tex = self.create_texture(file_path, noise_type, tex_grid, tex_size)
+
+        # change the UV coordinates of the box so as to point to the respective area in the texture.
+        geom_node = self.box.node()
         geom = geom_node.modify_geom(0)
         vdata = geom.modify_vertex_data()
         vdata_arr = vdata.modify_array(0)
         vdata_mem = memoryview(vdata_arr).cast('B').cast('f')
 
-        for i, (u, v) in enumerate(self.change_uv(segs)):
-            idx = i * stride
+        for i, (u, v) in enumerate(self.change_uv(box_segs)):
+            idx = i * box_maker.stride
             vdata_mem[idx + 10] = u
             vdata_mem[idx + 11] = v
-            # print(f"u: {u}, v: {v}")
 
-        tex = self.loader.load_texture('atras.png')
-        # voronoi = VoronoiEdges()
-        # image_generator = TextureAtlasGenerator(voronoi.vmix3)
-        # t = random.uniform(0, 1000)
-        # img = image_generator.generate_texture(t)
-        # img = cv2.rotate(img, cv2.ROTATE_180)
-        # img = cv2.flip(img, 1)
-
-        # tex = Texture('image')
-        # tex.setup_2d_texture(
-        #     256 * 4,
-        #     256 * 2,
-        #     Texture.T_unsigned_byte,
-        #     Texture.F_rgb
-        # )
-
-        # tex.set_ram_image(img)
-
-        # read documents！
-        tex.setWrapU(Texture.WM_clamp)
-        tex.setWrapV(Texture.WM_clamp)
-        tex.setMagfilter(Texture.FTNearest)
-        tex.setMinfilter(Texture.FTNearest)
-
-        box.set_texture(tex)
-        box.set_tex_hpr(TextureStage.get_default(), -180)
-
-        # box.hprInterval(20, (720, 0, 0)).start()
-        self.box = box
-        # self.box.hprInterval(20, 360).loop()
+        # set the atlas texture to the box.
+        tex.set_wrap_u(Texture.WM_clamp)
+        tex.set_wrap_v(Texture.WM_clamp)
+        tex.set_magfilter(Texture.FTNearest)
+        tex.set_minfilter(Texture.FTNearest)
+        self.box.set_texture(tex)
 
     def mouse_click(self):
         self.dragging = True
@@ -186,7 +247,6 @@ class VoronoiCube(ShowBase):
                     self.rotate_camera(mouse_pos, dt)
 
         return task.cont
-
 
 
 if __name__ == '__main__':

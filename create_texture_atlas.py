@@ -132,6 +132,10 @@ class TextureAtlasGenerator:
             w = i % 4 * self.size
             bg_img[h: h + self.size, w: w + self.size] = img
 
+        # Flipping bg_img by numpy slice like below causes
+        # 'TypeError: Texture.set_ram_image() requires a contiguous buffer'.
+        # bg_img = bg_img[::-1]
+        bg_img = cv2.flip(bg_img, 0)
         output(bg_img, 'atras')
         return bg_img
 
@@ -162,16 +166,6 @@ class TextureAtlasGenerator:
 
 
 if __name__ == '__main__':
-    # voronoi = VoronoiRoundEdges()
-    # func = lambda x, y, z: voronoi.vmix1(voronoi.voronoi_round_edge3(x, y, z, tp=20), 0.0, 1.0)
-
-    # tex_atlas = TextureAtlasGenerator(func)
-    # tex_atlas = TextureAtlasGenerator.from_voronoi()
     tex_atlas = TextureAtlasGenerator.from_transparent_round_edges()
     t = random.uniform(0, 1000)
     tex_atlas.generate_texture(t)
-
-    # alpha = np.full((512, 1024, 1), 0, dtype=np.uint8)
-    # rgba_image = np.dstack((img, alpha))
-    # mask = np.all(img[:, :, :] == [255, 255, 255], axis=-1)
-    # rgba_image[mask, 3] = 255
