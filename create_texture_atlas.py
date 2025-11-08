@@ -111,17 +111,25 @@ class Right(Faces):
         return img
 
 
-class TextureAtlasGenerator:
+class TexGenerator:
 
-    def __init__(self, noise, grid=4, size=256):
+    def generate_texture(self):
+        raise NotImplementedError
+
+
+class TextureAtlasGenerator(TexGenerator):
+
+    def __init__(self, noise, grid=4, size=256, edge_color=None):
         self.noise = noise
         self.grid = grid
         self.size = size
+        self.edge_color = edge_color
 
-    def generate_texture(self, t=0):
+    def generate_texture(self):
         faces = [Back, Forward, Left, Right, Bottom, Top]
         bg_img = np.zeros((self.size * 2, self.size * 4, 3), dtype=np.uint8)
         w = h = 0
+        t = random.uniform(0, 1000)
 
         for i, face in enumerate(faces):
             face_creator = face(self.noise, self.size, self.grid)
@@ -131,6 +139,15 @@ class TextureAtlasGenerator:
             h = i // 4 * self.size
             w = i % 4 * self.size
             bg_img[h: h + self.size, w: w + self.size] = img
+
+        if self.edge_color:
+            bg_img = np.where(bg_img == [255, 255, 255], self.edge_color, bg_img)
+            bg_img = bg_img.astype(np.uint8)
+
+            mask = np.all(bg_img[:, :, :] == self.edge_color, axis=-1)
+            alpha_channel = np.full((self.size * 2, self.size * 4), 0, dtype=np.uint8)
+            bg_img = np.dstack((bg_img, alpha_channel))
+            bg_img[mask, 3] = 255
 
         # Flipping bg_img only by numpy slice 'bg_img[::-1]' causes in VoronoiCube.create_texture method
         # 'TypeError: Texture.set_ram_image() requires a contiguous buffer'.
@@ -159,11 +176,21 @@ class TextureAtlasGenerator:
         return image_generator
 
     @classmethod
-    def from_transparent_round_edges(cls, grid=4, size=256):
+    def from_transparent_round_edges(cls, edge_color, grid=4, size=256):
         voronoi = VoronoiRoundEdges()
         func = lambda x, y, z: voronoi.vmix1(voronoi.voronoi_round_edge3(x, y, z, tp=20), 0.0, 1.0)
-        image_generator = cls(func, grid, size)
+        image_generator = cls(func, grid, size, edge_color=edge_color)
         return image_generator
+
+
+class TextureAtlasReader(TexGenerator):
+
+    def __init__(self, file):
+        self.file = file
+
+    def generate_texture(self):
+        img = cv2.imread(self.file)
+        return img
 
 
 if __name__ == '__main__':
