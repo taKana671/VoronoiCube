@@ -18,6 +18,7 @@ class Status(Enum):
     WAIT = auto()
     FINISH = auto()
     DISPLAY = auto()
+    START = auto()
 
 
 class NoiseType(StrEnum):
@@ -109,13 +110,14 @@ class VoronoiCube(ShowBase):
         self.before_mouse_pos = None
         self.show_wireframe = False
 
+        self.start(file_path, noise_type, tex_grid, tex_size, box_size, box_segs)
+        self.status = Status.START
+
         self.accept('d', self.toggle_wireframe)
         self.accept('mouse1', self.mouse_click)
         self.accept('mouse1-up', self.mouse_release)
         self.accept('escape', sys.exit)
         self.task_mgr.add(self.update, 'update')
-
-        self.start(file_path, noise_type, tex_grid, tex_size, box_size, box_segs)
 
     def start(self, file_path, noise_type, tex_grid, tex_size, box_size, box_segs):
         self.bar = Progress(self.aspect2d)
@@ -123,8 +125,8 @@ class VoronoiCube(ShowBase):
             target=self.create_box,
             args=(file_path, noise_type, tex_grid, tex_size, box_size, box_segs)
         )
-        self.voronoi_thread.start()
-        self.status = Status.SETUP
+        # self.voronoi_thread.start()
+        # self.status = Status.SETUP
 
     def toggle_wireframe(self):
         if self.show_wireframe:
@@ -301,6 +303,8 @@ class VoronoiCube(ShowBase):
             case Status.SETUP:
                 if not self.voronoi_thread.is_alive():
                     self.status = Status.WAIT
+                    self.voronoi_thread = None
+                    # del self.voronoi_thread
                 else:
                     self.bar.update_progress()
 
@@ -321,7 +325,8 @@ class VoronoiCube(ShowBase):
                         if globalClock.get_frame_time() - self.dragging_start_time >= 0.2:
                             self.rotate_camera(mouse_pos, dt)
 
-            case _:
+            case Status.START:
+                self.voronoi_thread.start()
                 self.status = Status.SETUP
 
         return task.cont
