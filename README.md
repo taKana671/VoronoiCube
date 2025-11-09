@@ -1,8 +1,8 @@
 # VoronoiCube
 
 This repository was created to practice assigning different textures to each face of a cube.
-I merged the textures for different faces into a large  “atlas”  texture and procedurally generated a 3D cube model, then have the UV coordinates of the cube point to the respective area in the texture.
-The texture was generated from 3D Voronoi noise.Texture images are created using Python's Numpy.ndarray, and the Numpy.ndarray is converted into a texture.
+I merged the textures for different faces into a large  “atlas”  texture and procedurally generated a 3D cube model, then modified the cube to have the UV coordinates point to the respective area in the texture.
+The texture was generated from 3D Voronoi noise.Texture images were created as Python's Numpy.ndarray, and the Numpy.ndarray is converted into a texture.
 
 Additionally, to learn about modifying UV coordinates, I repeatedly read the Panda3D manual and articles on the Community site. Thank you to all the mentors on the Community site for posting so many useful articles.
 
