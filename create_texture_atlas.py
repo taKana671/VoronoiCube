@@ -194,6 +194,6 @@ class TextureAtlasReader(TexGenerator):
 
 
 if __name__ == '__main__':
-    tex_atlas = TextureAtlasGenerator.from_transparent_round_edges()
-    t = random.uniform(0, 1000)
-    tex_atlas.generate_texture(t)
+    generator = TextureAtlasGenerator.from_voronoi_edges()
+    img = generator.generate_texture()
+    output(img, 'edges')

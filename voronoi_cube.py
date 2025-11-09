@@ -23,7 +23,7 @@ class Status(Enum):
 class NoiseType(StrEnum):
 
     VORONOI = "voronoi"
-    EDGE = "edges"
+    EDGES = "edges"
     ROUNDED = "rounded"
     TRANSPARENT = "transparent"
 
@@ -196,7 +196,7 @@ class VoronoiCube(ShowBase):
             case NoiseType.VORONOI:
                 tex_creator = TextureAtlasGenerator.from_voronoi(grid, size)
 
-            case NoiseType.EDGE:
+            case NoiseType.EDGES:
                 tex_creator = TextureAtlasGenerator.from_voronoi_edges(grid, size)
 
             case NoiseType.ROUNDED:
